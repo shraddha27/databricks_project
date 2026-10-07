@@ -1,0 +1,211 @@
+{
+  "datasets": [
+    {
+      "name": "pricecmp1",
+      "displayName": "Actual and predicted nightly prices",
+      "queryLines": [
+        "WITH gold AS (\n",
+        "  SELECT * FROM gold_airbnb_valuation\n",
+        "), top_neighborhoods AS (\n",
+        "  SELECT COALESCE(neighbourhood_cleansed, 'Unknown') AS neighborhood\n",
+        "  FROM gold\n",
+        "  GROUP BY 1\n",
+        "  ORDER BY COUNT(*) DESC\n",
+        "  LIMIT 10\n",
+        ")\n",
+        "SELECT COALESCE(g.neighbourhood_cleansed, 'Unknown') AS neighborhood,\n",
+        "       'Actual' AS price_type, g.nightly_price AS nightly_price\n",
+        "FROM gold g JOIN top_neighborhoods n\n",
+        "  ON COALESCE(g.neighbourhood_cleansed, 'Unknown') = n.neighborhood\n",
+        "UNION ALL\n",
+        "SELECT COALESCE(g.neighbourhood_cleansed, 'Unknown') AS neighborhood,\n",
+        "       'Predicted' AS price_type, g.predicted_nightly_price AS nightly_price\n",
+        "FROM gold g JOIN top_neighborhoods n\n",
+        "  ON COALESCE(g.neighbourhood_cleansed, 'Unknown') = n.neighborhood"
+      ]
+    },
+    {
+      "name": "errneigh1",
+      "displayName": "Average prediction error by neighborhood",
+      "queryLines": [
+        "SELECT COALESCE(neighbourhood_cleansed, 'Unknown') AS neighborhood,\n",
+        "       AVG(absolute_prediction_error) AS mean_absolute_error\n",
+        "FROM gold_airbnb_valuation\n",
+        "GROUP BY 1\n",
+        "HAVING COUNT(*) >= 10\n",
+        "ORDER BY mean_absolute_error DESC\n",
+        "LIMIT 15"
+      ]
+    },
+    {
+      "name": "toperror1",
+      "displayName": "Listings with the largest prediction errors",
+      "queryLines": [
+        "SELECT listing_id, COALESCE(neighbourhood_cleansed, 'Unknown') AS neighborhood,\n",
+        "       nightly_price, predicted_nightly_price, absolute_prediction_error\n",
+        "FROM gold_airbnb_valuation\n",
+        "ORDER BY absolute_prediction_error DESC\n",
+        "LIMIT 15"
+      ]
+    },
+    {
+      "name": "income01",
+      "displayName": "Rental income under occupancy and expense scenarios",
+      "queryLines": [
+        "WITH scenarios AS (\n",
+        "  SELECT * FROM VALUES\n",
+        "    ('50% occ / 25% exp', 0.50, 0.25),\n",
+        "    ('50% occ / 35% exp', 0.50, 0.35),\n",
+        "    ('50% occ / 45% exp', 0.50, 0.45),\n",
+        "    ('65% occ / 25% exp', 0.65, 0.25),\n",
+        "    ('65% occ / 35% exp', 0.65, 0.35),\n",
+        "    ('65% occ / 45% exp', 0.65, 0.45),\n",
+        "    ('80% occ / 25% exp', 0.80, 0.25),\n",
+        "    ('80% occ / 35% exp', 0.80, 0.35),\n",
+        "    ('80% occ / 45% exp', 0.80, 0.45)\n",
+        "  AS s(scenario_name, occupancy_rate, expense_ratio)\n",
+        "), scenario_metrics AS (\n",
+        "  SELECT s.scenario_name, s.occupancy_rate, s.expense_ratio,\n",
+        "         AVG(g.predicted_nightly_price * 30 * s.occupancy_rate) AS monthly_gross_rent,\n",
+        "         AVG(g.predicted_nightly_price * 30 * s.occupancy_rate * (1 - s.expense_ratio)) AS monthly_noi\n",
+        "  FROM gold_airbnb_valuation g CROSS JOIN scenarios s\n",
+        "  GROUP BY s.scenario_name, s.occupancy_rate, s.expense_ratio\n",
+        ")\n",
+        "SELECT scenario_name, occupancy_rate, expense_ratio,\n",
+        "       'Gross monthly rent' AS income_type, monthly_gross_rent AS monthly_amount\n",
+        "FROM scenario_metrics\n",
+        "UNION ALL\n",
+        "SELECT scenario_name, occupancy_rate, expense_ratio,\n",
+        "       'After expenses (NOI)' AS income_type, monthly_noi AS monthly_amount\n",
+        "FROM scenario_metrics"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview01",
+      "displayName": "Valuation Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "pricewid1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "pricecmp1",
+                  "fields": [
+                    { "name": "neighborhood", "expression": "`neighborhood`" },
+                    { "name": "price_type", "expression": "`price_type`" },
+                    { "name": "avg(nightly_price)", "expression": "AVG(`nightly_price`)" }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": { "displayName": "Neighborhood", "fieldName": "neighborhood", "scale": { "type": "categorical" } },
+                "y": { "axis": { "title": "Average nightly price (USD)" }, "displayName": "Average nightly price", "fieldName": "avg(nightly_price)", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Price", "fieldName": "price_type", "legend": { "position": "bottom" }, "scale": { "type": "categorical" } }
+              },
+              "frame": { "description": "Actual listing prices compared with held-out model predictions in the ten most represented neighborhoods.", "showDescription": true, "showTitle": true, "title": "Actual vs predicted nightly price" }
+            }
+          },
+          "position": { "x": 0, "y": 0, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "errwid01",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "errneigh1",
+                  "fields": [
+                    { "name": "neighborhood", "expression": "`neighborhood`" },
+                    { "name": "max(mean_absolute_error)", "expression": "MAX(`mean_absolute_error`)" }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": { "displayName": "Neighborhood", "fieldName": "neighborhood", "scale": { "type": "categorical" } },
+                "y": { "axis": { "title": "Mean absolute error (USD)" }, "displayName": "Mean absolute error", "fieldName": "max(mean_absolute_error)", "scale": { "type": "quantitative" } }
+              },
+              "frame": { "description": "Neighborhoods with at least ten held-out listings, ranked by average absolute prediction error.", "showDescription": true, "showTitle": true, "title": "Where predictions miss most" }
+            }
+          },
+          "position": { "x": 3, "y": 0, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "topwid01",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "toperror1",
+                  "fields": [
+                    { "name": "listing_id", "expression": "`listing_id`" },
+                    { "name": "neighborhood", "expression": "`neighborhood`" },
+                    { "name": "max(absolute_prediction_error)", "expression": "MAX(`absolute_prediction_error`)" }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": { "displayName": "Listing ID", "fieldName": "listing_id", "scale": { "type": "categorical" } },
+                "y": { "axis": { "title": "Absolute error (USD)" }, "displayName": "Absolute prediction error", "fieldName": "max(absolute_prediction_error)", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Neighborhood", "fieldName": "neighborhood", "legend": { "position": "bottom" }, "scale": { "type": "categorical" } }
+              },
+              "frame": { "description": "The fifteen held-out listings with the largest differences between actual and predicted nightly prices.", "showDescription": true, "showTitle": true, "title": "Largest listing-level errors" }
+            }
+          },
+          "position": { "x": 0, "y": 6, "width": 3, "height": 6 }
+        },
+        {
+          "widget": {
+            "name": "incwid001",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "income01",
+                  "fields": [
+                    { "name": "scenario_name", "expression": "`scenario_name`" },
+                    { "name": "income_type", "expression": "`income_type`" },
+                    { "name": "max(monthly_amount)", "expression": "MAX(`monthly_amount`)" }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": { "displayName": "Occupancy / expense assumption", "fieldName": "scenario_name", "scale": { "type": "categorical" } },
+                "y": { "axis": { "title": "Average monthly estimate (USD)" }, "displayName": "Monthly estimate", "fieldName": "max(monthly_amount)", "scale": { "type": "quantitative" } },
+                "color": { "displayName": "Estimate", "fieldName": "income_type", "legend": { "position": "bottom" }, "scale": { "type": "categorical" } }
+              },
+              "frame": { "description": "Compares average gross monthly rent and monthly NOI across 50%, 65%, and 80% occupancy and 25%, 35%, and 45% operating expenses. Cap rate is not used in these income figures.", "showDescription": true, "showTitle": true, "title": "Rental income by scenario" }
+            }
+          },
+          "position": { "x": 3, "y": 6, "width": 3, "height": 6 }
+        }
+      ]
+    }
+  ],
+  "uiSettings": {}
+}

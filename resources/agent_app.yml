@@ -1,0 +1,56 @@
+resources:
+  apps:
+    airbnb_valuation_agent:
+      name: agent-airbnb-valuation
+      description: Read-only conversational analysis of Airbnb valuations, model quality, and rental scenarios.
+      source_code_path: ../agent_app
+      compute_size: MEDIUM
+      config:
+        command:
+          - streamlit
+          - run
+          - app.py
+          - --server.address
+          - 0.0.0.0
+          - --server.port
+          - "8000"
+        env:
+          - name: AIRBNB_CATALOG
+            value: ${var.catalog}
+          - name: AIRBNB_SCHEMA
+            value: ${var.schema}
+          - name: DATABRICKS_WAREHOUSE_ID
+            value: ${var.warehouse_id}
+          - name: DATABRICKS_SERVING_ENDPOINT
+            value: databricks-gpt-oss-120b
+          - name: AIRBNB_VECTOR_INDEX
+            value: ${var.catalog}.${var.schema}.airbnb_listing_search
+      resources:
+        - name: model_endpoint
+          serving_endpoint:
+            name: databricks-gpt-oss-120b
+            permission: CAN_QUERY
+        - name: sql_warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: gold_valuation
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema}.gold_airbnb_valuation
+            permission: SELECT
+        - name: quality_audit
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema}.data_quality_audit
+            permission: SELECT
+        - name: listing_search_index
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema}.airbnb_listing_search
+            permission: SELECT
+        - name: listing_search_index
+          uc_securable:
+            securable_type: TABLE
+            securable_full_name: ${var.catalog}.${var.schema}.airbnb_listing_search
+            permission: SELECT

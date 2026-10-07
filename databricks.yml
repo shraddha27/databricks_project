@@ -1,0 +1,23 @@
+bundle:
+  name: airbnb-real-estate-valuation
+
+include:
+  - resources/*.yml
+
+variables:
+  source_path:
+    description: Airbnb listings CSV in the shared Unity Catalog sample volume
+    default: /Volumes/databricks_airbnb_sample_data/v01/sf-listings/sf-airbnb.csv
+  catalog:
+    description: Unity Catalog catalog for pipeline tables
+    default: workspace
+  schema:
+    description: Unity Catalog schema for pipeline tables
+    default: airbnb_lakehouse
+  warehouse_id:
+    description: SQL warehouse used to render the valuation dashboard
+    default: bc1d795b5081d326
+targets:
+  dev:
+    default: true
+    mode: development

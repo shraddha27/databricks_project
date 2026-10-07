@@ -1,0 +1,8 @@
+resources:
+  dashboards:
+    airbnb_valuation_dashboard:
+      display_name: Airbnb Valuation and Rental Scenarios
+      file_path: ../src/airbnb_valuation_dashboard.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ${var.schema}

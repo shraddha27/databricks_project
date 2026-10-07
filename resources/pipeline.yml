@@ -1,0 +1,33 @@
+resources:
+  jobs:
+    airbnb_valuation_pipeline:
+      name: Airbnb Real Estate Valuation Lakehouse Pipeline
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED
+      tasks:
+        - task_key: build_lakehouse
+          environment_key: serverless
+          spark_python_task:
+            python_file: ../src/pipeline.py
+            parameters:
+              - --source-path
+              - ${var.source_path}
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --occupancy-rate
+              - "0.65"
+              - --expense-ratio
+              - "0.35"
+              - --cap-rate
+              - "0.06"
+      environments:
+        - environment_key: serverless
+          spec:
+            environment_version: "2"
+            dependencies:
+              - scikit-learn==1.5.2
+              - mlflow==2.19.0

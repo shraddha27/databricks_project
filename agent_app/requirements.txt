@@ -1,0 +1,3 @@
+databricks-openai==0.17.1
+databricks-mcp>=0.9,<1
+streamlit>=1.42,<2
